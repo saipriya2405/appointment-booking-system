@@ -1,0 +1,105 @@
+const API_URL = "http://localhost:5000/api/appointments";
+
+// Get token from localStorage
+const token = localStorage.getItem("token");
+
+// If no token → redirect to login page
+if (!token) {
+  window.location.href = "login.html";
+}
+
+const form = document.getElementById("appointmentForm");
+const appointmentsSection = document.getElementById("appointmentsSection");
+const homeSection = document.getElementById("homeSection");
+
+const navView = document.getElementById("navViewAppointments");
+const homeBtn = document.getElementById("homeBtn");
+
+const navLinks = document.querySelectorAll(".nav-links li a");
+
+function setActiveTab(activeElement) {
+  navLinks.forEach(link => link.classList.remove("active"));
+  activeElement.classList.add("active");
+}
+
+// Home tab
+homeBtn.addEventListener("click", () => {
+  homeSection.style.display = "block";
+  appointmentsSection.style.display = "none";
+  setActiveTab(homeBtn);
+});
+
+// Appointments tab
+navView.addEventListener("click", () => {
+  homeSection.style.display = "none";
+  appointmentsSection.style.display = "block";
+  loadAppointments();
+  setActiveTab(navView);
+});
+
+// Book appointment
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const data = {
+    date: document.getElementById("date").value,
+    time: document.getElementById("time").value,
+    reason: document.getElementById("reason").value,
+  };
+
+  await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify(data),
+  });
+
+  alert("Appointment booked!");
+  form.reset();
+});
+
+// Load appointments for logged-in user
+async function loadAppointments() {
+  const res = await fetch(API_URL, {
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  });
+
+  const appointments = await res.json();
+
+  const grid = document.getElementById("appointmentsGrid");
+  grid.innerHTML = "";
+
+  appointments.forEach(a => {
+    const card = document.createElement("div");
+    card.className = "appointment-card";
+
+    card.innerHTML = `
+      <h3>${a.userName}</h3>
+      <p><strong>Date:</strong> ${a.date}</p>
+      <p><strong>Time:</strong> ${a.time}</p>
+      <p><strong>Reason:</strong> ${a.reason}</p>
+      
+      <button class="delete-btn" onclick="deleteAppointment('${a._id}')">Delete</button>
+    `;
+
+    grid.appendChild(card);
+  });
+}
+
+// Delete appointment
+async function deleteAppointment(id) {
+  await fetch(`${API_URL}/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  });
+
+  loadAppointments();
+}
+
+setActiveTab(homeBtn);

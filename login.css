@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Appointment Scheduling</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-left">
+    <img src="logoavif.avif" alt="logo">
+    <h2>QuickBook</h2>
+  </div>
+
+  <ul class="nav-links">
+    <li><a href="#" id="homeBtn" class="active">Home</a></li>
+    <li><a href="#" id="navViewAppointments">Appointments</a></li>
+    <li><a href="contact.html">Contact Us</a></li>
+    <li><a href="#" id="logoutBtn">Logout</a></li>
+  </ul>
+</nav>
+
+<!-- HOME PAGE -->
+<div id="homeSection">
+  <div class="home-container">
+    <h1>Book Your Appointment</h1>
+    <p class="home-subtitle">Fill the details below to schedule an appointment.</p>
+
+    <form id="appointmentForm" class="home-form" novalidate>
+
+      <div class="input-box">
+        <input type="text" id="name" required  placeholder=" "  />
+        <label>Your Name</label>
+      </div>
+
+      <div class="input-box">
+        <input type="date" id="date" required  placeholder=" " />
+        <label>Select Date</label>
+      </div>
+
+      <div class="input-box">
+        <input type="time" id="time" required placeholder=" " />
+        <label>Select Time</label>
+      </div>
+
+      <div class="input-box">
+        <input type="text" id="reason" required  placeholder=" " />
+        <label>Reason</label>
+      </div>
+
+      <button type="submit" class="home-btn">Book Appointment</button>
+
+    </form>
+  </div>
+</div>
+
+<!-- APPOINTMENTS PAGE -->
+<div id="appointmentsSection" class="appointments-wrapper" style="display:none;">
+  <h1 class="page-title">Your Appointments</h1>
+  <div id="appointmentsGrid" class="appointments-grid"></div>
+</div>
+
+<script src="script.js" ></script>
+
+<script>
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    // TOKEN CHECK
+    const token = localStorage.getItem("token");
+    if (!token) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    // SETUP HEADERS
+    const headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+    };
+
+    // LOGOUT
+    document.getElementById("logoutBtn").addEventListener("click", (e) => {
+        e.preventDefault();
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.href = "login.html";
+    });
+
+    // NAVIGATION
+    document.getElementById("navViewAppointments").addEventListener("click", () => {
+        document.getElementById("homeSection").style.display = "none";
+        document.getElementById("appointmentsSection").style.display = "block";
+        loadAppointments(); 
+    });
+
+    document.getElementById("homeBtn").addEventListener("click", () => {
+        document.getElementById("homeSection").style.display = "block";
+        document.getElementById("appointmentsSection").style.display = "none";
+    });
+
+    // BOOK APPOINTMENT
+    const form = document.getElementById("appointmentForm");
+    if (form) {
+        form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const name = document.getElementById("name").value.trim();
+    const date = document.getElementById("date").value.trim();
+    const time = document.getElementById("time").value.trim();
+    const reason = document.getElementById("reason").value.trim();
+
+    // ⭐ CUSTOM VALIDATION ⭐
+    if (!name || !date || !time || !reason) {
+        showToast("Please fill in all the fields ❗💜");
+        return; // stop here
+    }
+
+    // ⭐ YOUR BACKEND API CALL STARTS BELOW ⭐
+
+
+            const newAppointment = { name, date, time, reason };
+
+            // SEND TO BACKEND (MongoDB)
+            try {
+                const res = await fetch("http://localhost:5000/api/appointments", {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify(newAppointment)
+                });
+
+                if (res.ok) {
+                    showToast("Appointment Booked Successfully! 💜");
+                    this.reset();
+                } else {
+                    showToast("Error booking appointment ❌");
+                }
+            } catch (error) {
+                showToast("Server error ❌");
+            }
+        });
+    }
+});
+
+// ===============================
+// LOAD APPOINTMENTS
+// ===============================
+async function loadAppointments() {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch("http://localhost:5000/api/appointments/me", {
+        headers: { "Authorization": "Bearer " + token }
+    });
+
+    const appointments = await res.json();
+    const grid = document.getElementById("appointmentsGrid");
+    grid.innerHTML = "";
+
+    appointments.forEach(app => {
+        const card = document.createElement("div");
+        card.className = "appointment-card";
+
+        card.innerHTML = `
+            <h3>${app.name}</h3>
+            <p><strong>Date:</strong> ${app.date}</p>
+            <p><strong>Time:</strong> ${app.time}</p>
+            <p><strong>Reason:</strong> ${app.reason}</p>
+
+            <button class="delete-btn" onclick="deleteAppointment('${app._id}')">
+                Delete
+            </button>
+        `;
+
+        grid.appendChild(card);
+    });
+}
+
+
+// ===============================
+// DELETE FUNCTION (GLOBAL)
+// ===============================
+async function deleteAppointment(id) {
+    const token = localStorage.getItem("token");
+
+    if (!confirm("Are you sure you want to delete this appointment?")) return;
+
+    try {
+        const res = await fetch(`http://localhost:5000/api/appointments/${id}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (res.ok) {
+            showToast("Appointment Deleted Successfully 💜");
+            loadAppointments();
+        } else {
+            showToast("Failed to delete ❌");
+        }
+    } catch (err) {
+        showToast("Server error ❌");
+    }
+}
+
+
+// ✨ TOAST FUNCTION
+function showToast(message) {
+    const container = document.getElementById("toastContainer");
+
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.innerText = message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => { toast.remove(); }, 3000);
+}
+</script>
+
+
+<div id="toastContainer"></div>
+
+</body>
+</html>
